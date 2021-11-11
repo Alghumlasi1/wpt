@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<link rel=author href="mailto:jarhar@chromium.org">
+<link rel=help href="https://github.com/whatwg/html/pull/7283">
+<link rel=help href="https://bugs.chromium.org/p/chromium/issues/detail?id=1266468">
+
+<link rel=author href="mailto:gulukesh@gmail.com">
+<link rel=help href="https://bugs.chromium.org/p/chromium/issues/detail?id=1131234">
+
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+
+<body>
+<script>
+function runTest(type, testValue) {
+  promise_test(async () => {
+    // Unfortunately, window.open() doesn't fire load events on this parent
+    // window, and we also need to add a setTimeout before we can navigate
+    // the child window again.
+    let loadPromise = new Promise(resolve => window.loadResolver = resolve);
+    const w = window.open(`resources/${type}-restore-events.html`);
+    await loadPromise;
+    await new Promise(resolve => step_timeout(resolve, 0));
+
+    w.document.querySelector('input').value = testValue;
+
+    loadPromise = new Promise(resolve => window.loadResolver = resolve);
+    w.location.href = 'resources/loadresolver.html';
+    await loadPromise;
+    await new Promise(resolve => step_timeout(resolve, 0));
+
+    loadPromise = new Promise(resolve => window.loadResolver = resolve);
+    w.history.back();
+    await loadPromise;
+    await new Promise(resolve => step_timeout(resolve, 0));
+
+    assert_equals(w.document.querySelector('input').value, testValue,
+      'The input should have its value restored.');
+
+    assert_false(w.window.seeninput || false,
+      'The input event should not have been fired after restoration.');
+    assert_false(w.window.seenchange || false,
+      'The change event should not have been fired after restoration.');
+
+    w.close();
+  }, `Verifies that form restoration does not fire input or change events for <input type=${type}>.`);
+}
+
+runTest('range', '8');
+runTest('text', 'foo');
+</script>
